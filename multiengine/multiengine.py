@@ -606,7 +606,7 @@ class MultiEngineXBlock(XBlock):
             возвращает долю совпавших значений.
             """
 
-            keywords = ('or', 'and', 'not')
+            keywords = ('or', 'and', 'not', 'or-and')
 
             def max_length(lst):
                 length = 0
@@ -616,42 +616,84 @@ class MultiEngineXBlock(XBlock):
                 return length
 
             def _compare_answers_not_sequenced(student_answer, correct_answer, checked=0, correct=0):
-                """
-                Вычисляет долю выполненных заданий без учета
-                последовательности элементов в области.
-                """
+
+                fail = False
 
                 right_answers = []
                 wrong_answers = []
+
+                correct_answers_list = []
+                student_answers_list = []
+                for key in student_answer:
+                    student_answers_list += student_answer[key]
 
                 for key in correct_answer:
                     for value in correct_answer[key]:
                         with_keyword = False
                         if value in keywords:
-                            keyword = value
-                            correct_values = correct_answer[key][keyword]
-                            for correct_value in correct_values:
-                                if len(set(correct_value) - set(student_answer[key])) == 0:
-                                    with_keyword = True
-                                    break
-                            if with_keyword:
-                                checked += len(student_answer[key])
-                                correct += len(student_answer[key])
-                            else:
-                                checked += len(student_answer[key])
+                            if value == "or":
+                                keyword = value
+                                correct_values = correct_answer[key][keyword]
+                                for correct_value in correct_values:
+                                    correct_answers_list += correct_value
+                                    if len(set(correct_value) - set(student_answer[key])) == 0:
+                                        with_keyword = True
+                                        break
+                                if with_keyword:
+                                    checked += len(student_answer[key])
+                                    correct += len(student_answer[key])
+                                else:
+                                    checked += len(student_answer[key])
+                            elif value == "or-and":
+                                keyword = value
+                                max_points_current = 0
+                                correct_variant_len = 0
+                                checked_objects = []
+                                student_answer_key = set(student_answer[key])
+                                for obj in correct_answer[key][keyword]:
+                                    if len(set(obj)) > max_points_current:
+                                        max_points_current = len(set(obj))
+
+                                max_entry_variant = 0
+                                for obj in correct_answer[key][keyword]:
+
+                                    correct_answers_list += obj
+
+                                    if max_entry_variant < len(set(obj)):
+                                        max_entry_variant = len(set(obj))
+                                        correct_variant_len = max_points_current = len(correct_answer[key][keyword])
+
+                                    for answer in copy.deepcopy(student_answer_key):
+
+                                        if answer in obj and obj not in checked_objects:
+                                            correct += 1
+                                            checked_objects.append(obj)
+                                        elif answer not in obj:
+                                            pass
+                                        else:
+                                            fail = True
+                                checked += correct_variant_len
 
                         elif value in student_answer[key]:
+                            correct_answers_list.append(value)
                             right_answers.append(value)
                             checked += 1
                             correct += 1
                         else:
+                            correct_answers_list.append(value)
                             wrong_answers.append(value)
                             checked += 1
 
+                if len(set(student_answers_list) - set(correct_answers_list)) or fail:
+                    print(set(student_answers_list))
+                    print(set(correct_answers_list))
+                    correct = 0
+
                 checks = {"result": correct / float(checked),
-                        "right_answers": right_answers,
-                        "wrong_answers": wrong_answers,
-                        }
+                          "right_answers": right_answers,
+                          "wrong_answers": wrong_answers,
+                          "checked": checked
+                          }
                 return checks
 
             def _compare_answers_sequenced(student_answer, correct_answer, checked=0, correct=0):
