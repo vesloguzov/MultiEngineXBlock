@@ -11,6 +11,8 @@ from path import path
 import git
 import shutil
 import logging
+import copy
+
 
 from django.template import Context, Template
 from django.utils.encoding import smart_text
